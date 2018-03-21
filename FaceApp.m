@@ -1,4 +1,4 @@
-#Simple GUI Matlab stream webcam, capture and detect faces using pre-trained Viola Jones Method
+%Simple GUI Matlab stream webcam, capture and detect faces using pre-trained Viola Jones Method
 
 function varargout = FaceApp(varargin)
 %FACEAPP MATLAB code file for FaceApp.fig
