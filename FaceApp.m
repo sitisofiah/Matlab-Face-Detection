@@ -1,4 +1,5 @@
 %Simple GUI Matlab stream webcam, capture and detect faces using pre-trained Viola Jones Method
+%Add recognition gender and age using Alexnet.
 
 function varargout = FaceApp(varargin)
 %FACEAPP MATLAB code file for FaceApp.fig
@@ -10,7 +11,7 @@ function varargout = FaceApp(varargin)
 %
 %      FACEAPP('Property','Value',...) creates a new FACEAPP using the
 %      given property value pairs. Unrecognized properties are passed via
-%      varargin to FaceApp_OpeningFcn.  This calling syntax produces a
+% xxc     varargin to FaceApp_OpeningFcn.  This calling syntax produces a
 %      warning when there is an existing singleton*.
 %
 %      FACEAPP('CALLBACK') and FACEAPP('CALLBACK',hObject,...) call the
@@ -94,9 +95,10 @@ function capture_Callback(hObject, eventdata, handles)
 % hObject    handle to capture (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-global vid im vidRes
-global IFaces faceDetector  videoFrameGray 
+global vid im vidRes net predAge predGen layer net2 net3
+global IFaces faceDetector  videoFrameGray im2 label
 global bbox bboxPoints bboxPolygon noFace m output
+global tStart tElapsed
 %stop(vid);
 vidRes = vid.VideoResolution;
 im=getsnapshot(vid);%trigger DepthVid to capture image
@@ -105,18 +107,52 @@ axes(handles.axes2);
 %im=imresize(im,[vidRes(2) vidRes(1)]);
 faceDetector = vision.CascadeObjectDetector();
 videoFrameGray = rgb2gray(im);
+tStart = tic;
 bbox = faceDetector.step(videoFrameGray);
 if ~isempty(bbox)
+    
 %bboxPoints = bbox2points(bbox(1, :));
 %bboxPolygon = reshape(bboxPoints', 1, []);
 %IFaces = insertShape(im, 'Polygon', bboxPolygon, 'LineWidth', 3);
-IFaces = insertObjectAnnotation(im, 'rectangle', bbox, 'Face','LineWidth', 3);
 [noFace,m ]=size(bbox);
-imshow(IFaces);output=[ num2str(noFace) ' Faces Detected'];
+net2=load('AlexnetAge.mat');
+net3=load('AlexnetGender.mat');
+net = alexnet;layer = 'fc7';
+inputSize = net.Layers(1).InputSize(1:2);
+
+for i=1:noFace
+im2=imcrop(im,[bbox(i,:)]);
+im2=imresize(im2,[inputSize]);
+testFeatures = activations(net,im2,layer);
+predAge = predict(net2.classifierAge,testFeatures);
+predGen = predict(net3.classifierGender,testFeatures);
+
+
+ %title({char(label), num2str(max(score),2)});
+%IFaces = insertShape(im, 'Rectangle', bbox, 'LineWidth', 3)  ;
+%RGB = insertText(im,[bbox(i,1), bbox(i,2)],'Face','FontSize',18,'BoxColor',...
+  %  'red','BoxOpacity',0.4,'TextColor','white');
+%text( bbox(i,1), bbox(i,2),'Face ','FontSize', 20);
+%set(H,'color','yellow','fontsize',44)
+label=[char(predAge),',',char(predGen)];
+IFaces = insertObjectAnnotation(im, 'rectangle', bbox(i,:),label,'LineWidth', 3,...
+    'TextBoxOpacity',0.9,'FontSize',22);
+%RGB = insertObjectAnnotation(I,'rectangle',position,label_str,...
+ %   'TextBoxOpacity',0.9,'FontSize',18);
+end
+imshow(IFaces);%imshow(RGB);
+tElapsed = toc(tStart); 
+set(handles.edit1,'Max',2);
+output = sprintf('%s\n%s', [' Number of Face Detected: ' num2str(noFace) ],...
+    ['Detection Time:' num2str(tElapsed) 's' ]);
+
+%output=[' Number of Face Detected: '  num2str(noFace) '\n' ' Detection Time:' ];
 set(handles.edit1,'string',output);
+
 else 
 imshow(im);
-set(handles.edit1,'string',['No Faces Detected']);
+output = sprintf('%s\n%s', ' No Face Detected: ' , 'Detection Time:');
+set(handles.edit1,'string',output);
 end
 delete(vid);
 
